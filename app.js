@@ -58,8 +58,12 @@ function defaultState() {
       generos.forEach(g => buckets[key][g] = RATING_INICIAL);
     }
   }
-  return { buckets };
+  return {
+    buckets,
+    votes: []   // 👈 aquí guardamos las decisiones humanas
+  };
 }
+
 
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultState();
 
@@ -126,12 +130,30 @@ function newDuel() {
 }
 
 function vote(winner) {
-  const key = `${segmentSelect.value}__${contextSelect.value}`;
+  const seg = segmentSelect.value;
+  const ctx = contextSelect.value;
+  const key = `${seg}__${ctx}`;
+
   updateElo(state.buckets[key], currentA, currentB, winner);
+
+  const ganador = winner === "A" ? currentA : currentB;
+  const perdedor = winner === "A" ? currentB : currentA;
+
+  state.votes.push({
+    fecha: new Date().toISOString(),
+    perfil: segmentos[seg],
+    contexto: contextos[ctx],
+    opcionA: currentA,
+    opcionB: currentB,
+    ganador,
+    perdedor
+  });
+
   saveState();
   renderTop();
   newDuel();
 }
+
 
 function renderTop() {
   const key = `${segmentSelect.value}__${contextSelect.value}`;
@@ -159,6 +181,47 @@ document.getElementById("btnReset").onclick = () => {
     renderTop();
     newDuel();
   }
+};
+
+newDuel();
+renderTop();
+
+document.getElementById("btnExport").onclick = () => {
+
+  if (!state.votes || state.votes.length === 0) {
+    alert("Aún no hay votos para exportar.");
+    return;
+  }
+
+  const headers = [
+    "fecha",
+    "perfil",
+    "contexto",
+    "opcionA",
+    "opcionB",
+    "ganador",
+    "perdedor"
+  ];
+
+  const rows = [
+    headers.join(","),
+    ...state.votes.map(v =>
+      headers.map(h => `"${String(v[h]).replaceAll('"','""')}"`).join(",")
+    )
+  ];
+
+  const csv = rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "mangamash_votos.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
 };
 
 newDuel();
